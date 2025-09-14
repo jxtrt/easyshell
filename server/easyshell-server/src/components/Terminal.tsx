@@ -1,18 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface TerminalProps {
-  children?: ReactNode;
   initialLines?: string[];
+  remoteId?: string;
+  onDisconnect?: () => void;
 }
 
-export function Terminal({ children, initialLines = [] }: TerminalProps) {
-  // grab simple string/number children as initial text if provided
-  const childrenText = React.Children.toArray(children)
-    .filter((c): c is string | number => typeof c === 'string' || typeof c === 'number')
-    .map(String);
-
-  const [lines, setLines] = useState<string[]>(() => [...initialLines, ...childrenText]);
+export function Terminal({ initialLines = [], remoteId, onDisconnect}: TerminalProps) {
+  const [lines, setLines] = useState<string[]>(() => [...initialLines]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoScrollRef = useRef(true);
   const counterRef = useRef(0);
@@ -38,14 +33,6 @@ export function Terminal({ children, initialLines = [] }: TerminalProps) {
     }
   }, [lines]);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      counterRef.current += 1;
-      setLines(prev => [...prev, counterRef.current.toString()]);
-    }, 100);
-    return () => clearInterval(id);
-  }, []);
-
   let goToBottom = () => {
     const el = containerRef.current;
     if (!el) return;
@@ -54,30 +41,36 @@ export function Terminal({ children, initialLines = [] }: TerminalProps) {
   }
 
   return (
-    <div className="relative bg-slate-900 border text-white w-[90%] h-[70vh] max-w-[80vw] max-h-[80vh]">
-      {/* Scrollable container */}
-      <div
-        ref={containerRef}
-        className="overflow-y-auto w-full h-full"
-      >
-        <div>
-          {lines.map((line, i) => (
-            <div key={i} className="whitespace-pre-wrap border-t border-slate-800 p-1">
-              {line}
-            </div>
-          ))}
-        </div>
+    <div className="flex flex-col items-center w-[90%] h-[70vh] max-w-[80vw] max-h-[80vh]">
+      <div className="flex flex-row justify-left w-full mb-2 gap-2">
+        <p>Connected to {remoteId}.</p>
+        <div className="link" onClick={() => onDisconnect && onDisconnect()}>Disconnect</div>
       </div>
-  
-      {/* Scroll to bottom button */}
-      {!autoScrollRef.current && (
-        <button
-          className="absolute bottom-4 right-4 bg-slate-700 text-white px-3 py-1 rounded hover:bg-slate-600"
-          onClick={goToBottom}
+      <div className="relative background text-white w-[100%] h-[100%] max-w-[80vw] max-h-[80vh] p-2 rounded-md shadow-md">
+        
+        <div
+          ref={containerRef}
+          className="overflow-y-auto w-full h-full"
         >
-          Scroll to bottom
-        </button>
-      )}
+          <div>
+            {lines.map((line, i) => (
+              <div key={i} className="whitespace-pre-wrap border-t border-slate-800 p-1">
+                {line}
+              </div>
+            ))}
+          </div>
+        </div>
+    
+        {/* Scroll to bottom button */}
+        {!autoScrollRef.current && (
+          <button
+            className="absolute bottom-4 right-4 bg-slate-700 text-white px-3 py-1 rounded hover:bg-slate-600"
+            onClick={goToBottom}
+          >
+            Scroll to bottom
+          </button>
+        )}
+      </div>
     </div>
   );
 }
