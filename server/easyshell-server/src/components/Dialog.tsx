@@ -1,3 +1,5 @@
+import { validate as validateUUID } from 'uuid';
+
 export function Dialog({ onConnect }: {
   onConnect: (data: { remoteId: string; mfaCode: string }) => void;
 }) {
@@ -6,6 +8,17 @@ export function Dialog({ onConnect }: {
     e.preventDefault();
     const remoteId = (document.getElementById('remoteId') as HTMLInputElement).value;
     const mfaCode = (document.getElementById('mfaCode') as HTMLInputElement).value;
+
+    if (!validateUUID(remoteId)) {
+      alert('Invalid Remote ID. Please enter a valid UUID.');
+      return;
+    }
+
+    if (!/^\d{6}$/.test(mfaCode)) {
+      alert('Invalid MFA Code. Please enter a 6-digit number.');
+      return;
+    }
+
     onConnect({ remoteId, mfaCode });
   };
 

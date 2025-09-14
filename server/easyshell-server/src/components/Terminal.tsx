@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { validate as validateUUID } from 'uuid';
 
 interface TerminalProps {
   initialLines?: string[];
@@ -7,6 +8,10 @@ interface TerminalProps {
 }
 
 export function Terminal({ initialLines = [], remoteId, onDisconnect}: TerminalProps) {
+  if (remoteId && !validateUUID(remoteId)) {
+    console.error('Invalid Remote ID provided to Terminal component.');
+  }
+
   const [lines, setLines] = useState<string[]>(() => [...initialLines]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoScrollRef = useRef(true);
