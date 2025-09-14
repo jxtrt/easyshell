@@ -1,14 +1,12 @@
-import { Frame } from './components/Frame'
-import './App.css'
+import { Frame } from './components/Frame';
+import { Terminal } from './components/Terminal';
 
 function App() {
   return (
     <Frame>
-      <p>
-        hello world
-      </p>
+      <Terminal initialLines={['Welcome to Easyshell']}></Terminal>
     </Frame>
-  )
+  );
 }
 
-export default App
+export default App;

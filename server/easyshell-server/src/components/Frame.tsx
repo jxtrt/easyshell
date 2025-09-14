@@ -1,22 +1,22 @@
-
-
 import type { ReactNode } from 'react';
-import terminal from '/terminal.svg'
+import terminal from '/terminal.svg';
 
 interface FrameProps {
-    children?: ReactNode;
+  children?: ReactNode;
 }
 
 export function Frame({ children }: FrameProps) {
     return (
-        <div className="frame h-screen w-screen flex flex-col border border-red-200">
-            <div className="flex items-center space-x-2 p-3 frame-top-row">
-                <img src={terminal} alt="terminal icon" />
-                <h1 className="text-xl font-semibold">Easyshell</h1>
-            </div>
-            <div className="flex-1 p-4 overflow-auto">
-                {children}
-            </div>
+      <div className="frame min-h-screen w-full flex flex-col p-4 box-border">
+        {/* Sticky top bar */}
+        <div className="flex items-center space-x-2 p-3 frame-top-row sticky top-0 z-10 bg-white">
+          <img src={terminal} alt="terminal icon" />
+          <h1 className="text-xl font-semibold">Easyshell</h1>
         </div>
-    )
-}
+  
+        <div className="flex flex-1 items-center justify-center">
+          {children}
+        </div>
+      </div>
+    );
+  }
