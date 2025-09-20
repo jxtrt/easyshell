@@ -31,3 +31,19 @@ class Shell:
                 key, value = line.split('=', 1)
                 env_vars[key] = value
         return env_vars
+    
+    def run_line(self, line: str):
+        """Run a single line of shell command."""
+        process = subprocess.Popen(
+            [self.shell, "-c", line],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self.get_environment_variables()
+        )
+        stdout, stderr = process.communicate()
+
+        return {
+            "code": process.returncode, 
+            "stdout": stdout.decode(), 
+            "stderr": stderr.decode()
+        }
