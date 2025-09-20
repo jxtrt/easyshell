@@ -70,7 +70,10 @@ async def setup_cleanup(app, _):
     async def cleanup_task():
         timeout = int(os.getenv("HEARTBEAT_TIMEOUT", 60))
         while True:
-            cleanup_heartbeats(timeout=timeout)
+            how_many = cleanup_heartbeats(timeout=timeout)
+            
+            logger.info("Cleaned up %s heartbeats.", how_many)
+
             await asyncio.sleep(timeout)  # run every <timeout> seconds
 
     app.add_task(cleanup_task())

@@ -7,7 +7,8 @@ class Heartbeat:
     RESPONSE_STOP = 1
     RESPONSE_SHELL_REQUEST = 2
 
-    def __init__(self, auth, endpoint, port=7843):
+    def __init__(self, instance_id, auth, endpoint, port=7843):
+        self.instance_id = instance_id
         self.auth = auth
         self.endpoint = endpoint
         self.port = port
@@ -29,7 +30,7 @@ class Heartbeat:
             response = requests.post(
                 f"http://{self.endpoint}:{self.port}/heartbeat",
                 json={
-                    "id": str(uuid.uuid4()),
+                    "id": self.instance_id,
                     "auth": "no-auth",
                 },
                 timeout=10,

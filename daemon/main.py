@@ -17,6 +17,7 @@ class Main:
 
     def run(self):
         heartbeat = Heartbeat(
+            instance_id=Config.INSTANCE_ID,
             auth=None,
             endpoint=Config.HEARTBEAT_ENDPOINT,
             port=Config.HEARTBEAT_PORT,
