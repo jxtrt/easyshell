@@ -6,16 +6,16 @@ from dotenv import load_dotenv
 from sanic import Sanic, Request
 from sanic.response import json
 from sanic.log import logger
-from sanic.worker.manager import WorkerManager
 
-from sanic_ext import validate
+from sanic_ext import Extend, validate
 
 from threading import Lock
 
 from validation.heartbeat import HeartbeatSchema
-from helpers import is_device_still_alive
 
 app = Sanic("easyshell_api")
+app.config.CORS_ORIGINS = "*"
+Extend(app)
 
 heartbeats = {}
 heartbeat_lock = Lock()
@@ -50,24 +50,19 @@ def heartbeat(_: Request, body: HeartbeatSchema):
 
 @app.get("/devices")
 def get_devices(_):
+    logger.info("Fetching devices.")
     with heartbeat_lock:
         devices = []
         for device_id, info in heartbeats.items():
-            if is_device_still_alive(info["timestamp"]):
-                devices.append(
-                    {
-                        "id": device_id,
-                        "auth": info["auth"],
-                        "timestamp": info["timestamp"],
-                    }
-                )
+            devices.append(
+                {
+                    "id": device_id,
+                    "auth": info["auth"],
+                    "timestamp": info["timestamp"],
+                }
+            )
 
     return json({"devices": devices})
-
-
-# @app.main_process_ready
-# async def ready(app: Sanic, _):
-#     app.manager.manage("Cleanup", cleanup_heartbeats, {"timeout": int(os.getenv("HEARTBEAT_TIMEOUT", 60))})
 
 
 @app.after_server_start
