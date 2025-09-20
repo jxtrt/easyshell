@@ -1,12 +1,16 @@
+import time
+import logging as log
+
 from dotenv import load_dotenv
+
 from easyshell import Logger
 from easyshell import Heartbeat, Config
 from easyshell.shell import Shell
 
 class Main:
     def __init__(self):
-        self.shell = Shell()
-
+        self.shell = Shell()        
+        
     def handle_shell_session(self):
         print("Starting shell session. Type 'exit' to end.")
 
@@ -22,27 +26,37 @@ class Main:
                 print(result["stderr"], end="")
 
     def run(self):
-        load_dotenv()
-        Config.init()
-
-        Logger.config()
         heartbeat = Heartbeat(
-            interval=Config.HEARTBEAT_INTERVAL,
             auth=None,
             endpoint=Config.HEARTBEAT_ENDPOINT,
             port=Config.HEARTBEAT_PORT,
-            on_shell_request=self.handle_shell_session,
         )
 
+        running = True
+
         try:
-            heartbeat.start()
-            while True:
-                pass  # Keep the main thread alive
+            while running:
+                response = heartbeat.tick()
+
+                match response:
+                    case Heartbeat.RESPONSE_SHELL_REQUEST:
+                        self.handle_shell_session()
+                    case Heartbeat.RESPONSE_EMPTY:
+                        pass
+                    case Heartbeat.RESPONSE_STOP:
+                        running = False
+                        log.info("Received stop signal. Exiting...")
+
+                time.sleep(Config.HEARTBEAT_INTERVAL)
+
         except KeyboardInterrupt:
             print("Shutting down...")
-            heartbeat.stop()
 
 def main():
+    load_dotenv()
+    Logger.config()
+    Config.init()
+
     app = Main()
     app.run()
 
