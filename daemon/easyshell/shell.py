@@ -2,7 +2,7 @@ import os
 import subprocess
 
 class ShellProfile:
-    def __init__(self, ps1="", shell_args=None):
+    def __init__(self, ps1="", shell_args=[]):
         self.ps1 = ps1
         self.shell_args = shell_args
 
@@ -22,7 +22,7 @@ class ZshProfile(ShellProfile):
 
 class ShProfile(ShellProfile):
     def __init__(self):
-        super().__init__(ps1="$ ")
+        super().__init__(ps1="[easyshell] $ ")
 
 class Shell:
     """Class to interface with the system shell."""
