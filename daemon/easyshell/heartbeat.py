@@ -5,7 +5,7 @@ class Heartbeat:
     RESPONSE_STOP = 1
     RESPONSE_SHELL_REQUEST = 2
 
-    def __init__(self, auth, endpoint, port=7843, on_shell_request=None):
+    def __init__(self, auth, endpoint, port=7843):
         self.auth = auth
         self.endpoint = endpoint
         self.port = port

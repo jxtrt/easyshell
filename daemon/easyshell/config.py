@@ -6,6 +6,7 @@ class Config:
     HEARTBEAT_INTERVAL = 1
     HEARTBEAT_ENDPOINT = ""
     HEARTBEAT_PORT = 7843
+    FORCED_SHELL = None
 
     @classmethod
     def init(cls):
@@ -14,3 +15,4 @@ class Config:
         )
         cls.HEARTBEAT_ENDPOINT = os.getenv("HEARTBEAT_ENDPOINT", cls.HEARTBEAT_ENDPOINT)
         cls.HEARTBEAT_PORT = int(os.getenv("HEARTBEAT_PORT", cls.HEARTBEAT_PORT))
+        cls.FORCED_SHELL = os.getenv("FORCED_SHELL", cls.FORCED_SHELL)

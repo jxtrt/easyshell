@@ -9,21 +9,11 @@ from easyshell.shell import Shell
 
 class Main:
     def __init__(self):
-        self.shell = Shell()        
+        self.shell = Shell(Config.FORCED_SHELL)        
         
     def handle_shell_session(self):
         print("Starting shell session. Type 'exit' to end.")
-
-        while True:
-            command = input("$ ")
-            if command.strip().lower() == "exit":
-                print("Exiting shell session.")
-                break
-
-            result = self.shell.run_line(command)
-            print(result["stdout"], end="")
-            if result["stderr"]:
-                print(result["stderr"], end="")
+        self.shell.enter()
 
     def run(self):
         heartbeat = Heartbeat(

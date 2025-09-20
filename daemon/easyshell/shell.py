@@ -1,18 +1,52 @@
 import os
 import subprocess
 
+class ShellProfile:
+    def __init__(self, ps1="", shell_args=None):
+        self.ps1 = ps1
+        self.shell_args = shell_args
+
+class BashProfile(ShellProfile):
+    def __init__(self):
+        super().__init__(
+            ps1="[easyshell] \\u@\\h: \\w\\$ ",
+            shell_args=["--norc"]
+        )
+
+class ZshProfile(ShellProfile):
+    def __init__(self):
+        super().__init__(
+            ps1="[easyshell] %n@%m: %~%# ",
+            shell_args=["--no-rcs"]
+        )
+
+class ShProfile(ShellProfile):
+    def __init__(self):
+        super().__init__(ps1="$ ")
+
 class Shell:
     """Class to interface with the system shell."""
 
-    def __init__(self):
-        self.shell = self.get_shell()
+    def __init__(self, forced_shell=None):
+        self.shell = self.get_shell(forced_shell)
         self.home_directory = self.get_home_directory()
         self.username = self.get_username()
 
-    def get_shell(self):
+        self.shell_profile = None
+        if "bash" in self.shell:
+            self.shell_profile = BashProfile()
+        elif "zsh" in self.shell:
+            self.shell_profile = ZshProfile()
+        else:
+            raise ValueError(f"Unsupported shell: {self.shell}")
+
+    def get_shell(self, forced=None):
         """Get the user's preferred shell from the environment."""
+        if forced:
+            return forced
+        
         return os.getenv("SHELL", "/bin/sh")
-    
+
     def get_home_directory(self):
         """Get the user's home directory from the environment."""
         return os.getenv("HOME", "/home/user")
@@ -30,20 +64,38 @@ class Shell:
             if '=' in line:
                 key, value = line.split('=', 1)
                 env_vars[key] = value
+
+        env_vars["SHELL"] = self.shell
+        env_vars["PS1"] = self.shell_profile.ps1
+
         return env_vars
     
-    def run_line(self, line: str):
-        """Run a single line of shell command."""
-        process = subprocess.Popen(
-            [self.shell, "-c", line],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=self.get_environment_variables()
-        )
-        stdout, stderr = process.communicate()
+    def enter(self):
+        """
+        Enter an interactive shell session.
+        It keeps track of the user's environment, 
+        especially $PATH, $USER, $HOME and the current working directory.
+        """
+        try:
+            print(f"Running: {[self.shell, *self.shell_profile.shell_args]}")
+            subprocess.run(
+                [self.shell, *self.shell_profile.shell_args],
+                env=self.get_environment_variables(),
+                check=True
+            )
+        except FileNotFoundError:
+            print(f"Shell {self.shell} not found. Falling back to /bin/sh.")
+            subprocess.run(
+                ["/bin/sh"], 
+                env=self.get_environment_variables(),
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"Error occurred while entering shell: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
 
-        return {
-            "code": process.returncode, 
-            "stdout": stdout.decode(), 
-            "stderr": stderr.decode()
-        }
+
+        # Note: This will open a new shell session.
+        # The user can exit this session to return to the main program.
+
