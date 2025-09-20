@@ -3,9 +3,9 @@ import logging as log
 
 from dotenv import load_dotenv
 
-from easyshell import Logger
-from easyshell import Heartbeat, Config
-from easyshell.shell import Shell
+from daemon import Logger
+from daemon import Heartbeat, Config
+from daemon.shell import Shell
 
 class Main:
     def __init__(self):
