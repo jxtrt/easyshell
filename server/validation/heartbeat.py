@@ -1,22 +1,15 @@
 import uuid
-from dataclasses import dataclass
 from auth import AuthType
+from pydantic import BaseModel, field_validator
 
 
-@dataclass
-class HeartbeatSchema:
+class HeartbeatSchema(BaseModel):
     id: uuid.UUID
     auth_type: AuthType
 
-    def __post_init__(self):
-        try:
-            self.id = uuid.UUID(self.id)
-        except ValueError:
-            raise ValueError(f"Invalid UUID: {self.id}")
-
-        try:
-            if not isinstance(self.auth_type, str) or not self.auth_type:
-                raise ValueError("auth_type must be a non-empty string")
-            self.auth_type = AuthType(self.auth_type)
-        except ValueError:
-            raise ValueError(f"Unsupported auth type: {self.auth_type}")
+    @field_validator("auth_type", mode="before")
+    @classmethod
+    def validate_auth_type(cls, v):
+        if not v:
+            raise ValueError("auth_type must be a non-empty string")
+        return v

@@ -3,6 +3,7 @@ from enum import Enum
 
 
 class AuthType(Enum):
+    NO_AUTH = "no_auth"
     OTP = "otp"
 
 

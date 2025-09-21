@@ -1,32 +1,17 @@
 import uuid
-from dataclasses import dataclass
 from auth import AuthType
 
+from pydantic import BaseModel, field_validator
 
-@dataclass
-class SessionRequestSchema:
+class SessionRequestSchema(BaseModel):
     client_id: uuid.UUID
     remote_id: uuid.UUID
     auth_type: AuthType
     auth_value: str
 
-    def __post_init__(self):
-        try:
-            self.remote_id = uuid.UUID(self.remote_id)
-        except ValueError:
-            raise ValueError(f"Invalid UUID: {self.remote_id}")
-
-        try:
-            self.client_id = uuid.UUID(self.client_id)
-        except ValueError:
-            raise ValueError(f"Invalid UUID: {self.client_id}")
-
-        try:
-            if not isinstance(self.auth_type, str) or not self.auth_type:
-                raise ValueError("Auth type must be a non-empty string")
-            self.auth_type = AuthType(self.auth_type)
-        except ValueError:
-            raise ValueError(f"Unsupported auth type: {self.auth_type}")
-
-        if not isinstance(self.auth_value, str) or not self.auth_value:
-            raise ValueError("Auth value must be a non-empty string")
+    @field_validator("auth_value")
+    @classmethod
+    def validate_auth_value(cls, v):
+        if not v or not isinstance(v, str):
+            raise ValueError("auth_value must be a non-empty string")
+        return v

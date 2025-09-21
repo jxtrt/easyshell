@@ -1,6 +1,5 @@
 import logging as log
 import requests
-import uuid
 
 class Heartbeat:
     RESPONSE_EMPTY = 0
@@ -31,7 +30,7 @@ class Heartbeat:
                 f"http://{self.endpoint}:{self.port}/heartbeat",
                 json={
                     "id": self.instance_id,
-                    "auth": "no-auth",
+                    "auth_type": "no_auth",
                 },
                 timeout=10,
             )

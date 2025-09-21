@@ -17,16 +17,15 @@ class Session:
     remote_id: uuid.UUID
     auth_type: AuthType
     auth_value: str
-    status: str = STATUS_PENDING
     timestamp: int
-
+    status: str = STATUS_PENDING
 
 class SessionManager:
     def __init__(self):
         self.sessions: list[Session] = {}
         self.session_lock = asyncio.Lock()
 
-    def session_request(
+    async def session_request(
         self,
         client_id: uuid.UUID,
         remote_id: uuid.UUID,
@@ -42,13 +41,13 @@ class SessionManager:
             timestamp=int(time.time()),
         )
 
-        with self.session_lock:
+        async with self.session_lock:
             self.sessions[session.secret] = session
 
         return session
 
-    def cleanup_sessions(self, timeout: int) -> int:
-        with self.session_lock:
+    async def cleanup_sessions(self, timeout: int) -> int:
+        async with self.session_lock:
             now = int(time.time())
             to_delete = [
                 s.secret
