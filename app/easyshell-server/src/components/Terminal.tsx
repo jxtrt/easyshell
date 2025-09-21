@@ -1,21 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { validate as validateUUID } from 'uuid';
 
 interface TerminalProps {
-  initialLines?: string[];
   remoteId?: string;
   onDisconnect?: () => void;
+  lines: string[];
 }
 
-export function Terminal({ initialLines = [], remoteId, onDisconnect}: TerminalProps) {
+export function Terminal({ remoteId, onDisconnect, lines }: TerminalProps) {
   if (remoteId && !validateUUID(remoteId)) {
     console.error('Invalid Remote ID provided to Terminal component.');
   }
 
-  const [lines, setLines] = useState<string[]>(() => [...initialLines]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoScrollRef = useRef(true);
-  const counterRef = useRef(0);
 
   // track whether the user is at the bottom; if they are, new lines auto-scroll.
   useEffect(() => {
@@ -43,7 +41,7 @@ export function Terminal({ initialLines = [], remoteId, onDisconnect}: TerminalP
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     autoScrollRef.current = true;
-  }
+  };
 
   return (
     <div className="flex flex-col items-center w-[90%] h-[70vh] max-w-[80vw] max-h-[80vh]">
@@ -66,7 +64,6 @@ export function Terminal({ initialLines = [], remoteId, onDisconnect}: TerminalP
           </div>
         </div>
     
-        {/* Scroll to bottom button */}
         {!autoScrollRef.current && (
           <button
             className="absolute bottom-4 right-4 bg-slate-700 text-white px-3 py-1 rounded hover:bg-slate-600"

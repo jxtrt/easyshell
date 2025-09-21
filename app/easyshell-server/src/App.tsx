@@ -1,14 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Frame } from './components/Frame';
 import { Terminal } from './components/Terminal';
 import { Dialog } from './components/Dialog';
 
 function App() {
   //state: "initial" or "terminal"
-  const [state, setState] = React.useState<'initial' | 'terminal'>('initial');
-  const [remoteId, setRemoteId] = React.useState('');
-  const [OTPCode, setOTPCode] = React.useState('');
-  const [remotes, setRemotes] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [state, setState] = useState<'initial' | 'terminal'>('initial');
+  const [remoteId, setRemoteId] = useState('');
+  const [OTPCode, setOTPCode] = useState('');
+  const [remotes, setRemotes] = useState<Array<{ id: string; name: string }>>([]);
+  const [terminalLines, setTerminalLines] = useState<string[]>([]);
+
+  // WebSocket reference
+  const websocketRef = useRef<WebSocket | null>(null);
 
   //create a clientId (uuid) on app startup.
   const clientIdRef = useRef<string>('');
@@ -55,7 +59,19 @@ function App() {
       alert(`Failed to create session: ${errorData.error || response.statusText}`);
       return;
     }
-    console.log('Session request response body:', await response.text());
+
+    const { websocket_url } = await response.json();
+    const websocket = new WebSocket(websocket_url);
+    websocketRef.current = websocket;
+
+    websocket.onmessage = (event) => {
+      setTerminalLines((prevLines) => [...prevLines, event.data]);
+    };
+
+    websocket.onclose = () => {
+      console.log('WebSocket connection closed.');
+      onDisconnect();
+    };
 
     setState('terminal');
   };
@@ -64,7 +80,13 @@ function App() {
     setState('initial');
     setRemoteId('');
     setOTPCode('');
-  }
+    setTerminalLines([]);
+
+    if (websocketRef.current) {
+      websocketRef.current.close();
+      websocketRef.current = null;
+    }
+  };
 
   useEffect(() => {
     refreshRemotes();
@@ -75,7 +97,7 @@ function App() {
       {state === 'initial' ? (
         <Dialog onConnect={onConnect} remotes={remotes} refreshRemotes={refreshRemotes}/>
       ) : (
-        <Terminal remoteId={remoteId} onDisconnect={onDisconnect}/>
+        <Terminal remoteId={remoteId} onDisconnect={onDisconnect} lines={terminalLines} />
       )}
     </Frame>
   );
