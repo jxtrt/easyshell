@@ -12,14 +12,17 @@ from sanic_ext import Extend, validate
 from threading import Lock
 
 from validation.heartbeat import HeartbeatSchema
+from validation.session_request import SessionRequestSchema
+from auth import AuthType
 
 app = Sanic("easyshell_api")
 app.config.CORS_ORIGINS = "*"
 Extend(app)
 
 heartbeats = {}
-heartbeat_lock = Lock()
+session_requests = {}
 
+heartbeat_lock = Lock()
 
 def cleanup_heartbeats(timeout=60):
     """Remove heartbeats older than the timeout."""
@@ -64,6 +67,34 @@ def get_devices(_):
 
     return json({"devices": devices})
 
+@app.post("/session")
+def request_session(_: Request, body: SessionRequestSchema):
+    device_id = body.id
+    otp_code = body.auth_value
+    requested_auth_type = body.auth_type
+
+    try:
+        with heartbeat_lock:
+            if device_id not in heartbeats:
+                return json({"error": "Device not found or offline."}, status=404)
+
+            device_info = heartbeats[device_id]
+            
+            if device_info["auth"] != requested_auth_type:
+                return json({"error": "Auth type mismatch."}, status=400)
+        
+    except ValueError as e:
+        return json({"error": str(e)}, status=400)
+
+    # Here you would implement the logic to request a session from the device.
+    # This is a placeholder implementation.
+    logger.info(f"Requesting session from device {device_id} with OTP code {otp_code}")
+
+    # Simulate session creation
+    session_token = "session_token_example"
+
+    return json({"session_token": session_token})
+    
 
 @app.after_server_start
 async def setup_cleanup(app, _):
@@ -71,7 +102,7 @@ async def setup_cleanup(app, _):
         timeout = int(os.getenv("HEARTBEAT_TIMEOUT", 60))
         while True:
             how_many = cleanup_heartbeats(timeout=timeout)
-            
+
             logger.info("Cleaned up %s heartbeats.", how_many)
 
             await asyncio.sleep(timeout)  # run every <timeout> seconds
