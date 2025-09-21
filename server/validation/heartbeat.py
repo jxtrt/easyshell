@@ -2,6 +2,7 @@ import uuid
 from dataclasses import dataclass
 from auth import AuthType
 
+
 @dataclass
 class HeartbeatSchema:
     id: uuid.UUID
