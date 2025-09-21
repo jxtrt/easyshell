@@ -3,7 +3,7 @@ import os
 import asyncio
 
 from dotenv import load_dotenv
-from sanic import Sanic, Request
+from sanic import Sanic, Request, Websocket
 from sanic.response import json
 from sanic.log import logger
 
@@ -73,7 +73,7 @@ def get_devices(_):
 
 
 @app.post("/session")
-def request_session(_: Request, body: SessionRequestSchema):
+def request_session(request: Request, body: SessionRequestSchema):
     try:
         with heartbeat_lock:
             if body.target_id not in heartbeats:
@@ -91,16 +91,32 @@ def request_session(_: Request, body: SessionRequestSchema):
         f"Accepting session request from device {body.client_id} to remote {body.remote_id}."
     )
 
-    session_manager.session_request(
+    session = session_manager.session_request(
         client_id=body.client_id,
         remote_id=body.remote_id,
         auth_type=body.auth_type,
         auth_value=body.auth_value,
     )
 
-    session_token = "session_token_example"
+    websocket_url = f"ws://{request.host}/ws/{session.secret}"
 
-    return json({"session_token": session_token})
+    return json({"session_secret": session.secret, "websocket_url": websocket_url})
+
+
+@app.websocket("/ws/<session_secret>")
+async def websocket_handler(request, ws, session_secret):
+    """Handle WebSocket communication."""
+    logger.info(f"WebSocket connection established for session {session_secret}.")
+
+    try:
+        while True:
+            message = await ws.recv()
+            logger.info(f"Received message: {message}")
+            await ws.send(f"Echo: {message}")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        logger.info(f"WebSocket connection closed for session {session_secret}.")
 
 
 @app.after_server_start
