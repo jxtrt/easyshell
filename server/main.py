@@ -97,12 +97,12 @@ async def get_devices(_):
 async def request_session(request: Request, body: SessionRequestSchema):
     try:
         with heartbeat_lock:
-            if body.target_id not in heartbeats:
+            if body.remote_id not in heartbeats:
                 return json({"error": "Device offline."}, status=404)
 
-            device_info = heartbeats[body.target_id]
+            device_info = heartbeats[body.remote_id]
 
-            if device_info["auth"] != body.auth_type:
+            if device_info["auth_type"] != body.auth_type:
                 return json({"error": "Auth type mismatch."}, status=400)
 
     except ValueError as e:
@@ -112,7 +112,7 @@ async def request_session(request: Request, body: SessionRequestSchema):
         f"Accepting session request from device {body.client_id} to remote {body.remote_id}."
     )
 
-    session = session_manager.session_request(
+    session = await session_manager.session_request(
         client_id=body.client_id,
         remote_id=body.remote_id,
         auth_type=body.auth_type,

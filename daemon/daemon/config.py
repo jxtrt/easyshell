@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 
 class Config:
-    HEARTBEAT_INTERVAL = 30
+    HEARTBEAT_INTERVAL = 5
     HEARTBEAT_ENDPOINT = ""
     HEARTBEAT_PORT = 7843
     FORCED_SHELL = None

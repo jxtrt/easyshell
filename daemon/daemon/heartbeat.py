@@ -30,7 +30,7 @@ class Heartbeat:
                 f"http://{self.endpoint}:{self.port}/heartbeat",
                 json={
                     "id": self.instance_id,
-                    "auth_type": "no_auth",
+                    "auth_type": "otp",
                 },
                 timeout=10,
             )

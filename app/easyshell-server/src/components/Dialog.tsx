@@ -1,7 +1,7 @@
 import { validate as validateUUID } from 'uuid';
 
 export function Dialog({ onConnect, remotes, refreshRemotes }: {
-  onConnect: (data: { remoteId: string; mfaCode: string }) => void;
+  onConnect: (data: { remoteId: string; otpCode: string }) => void;
   remotes?: Array<{ id: string; name: string }>;
   refreshRemotes?: () => void;
 }) {
@@ -9,19 +9,19 @@ export function Dialog({ onConnect, remotes, refreshRemotes }: {
   let onButtonClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const remoteId = (document.getElementById('remoteId') as HTMLSelectElement).value;
-    const mfaCode = (document.getElementById('mfaCode') as HTMLInputElement).value;
+    const otpCode = (document.getElementById('otpCode') as HTMLInputElement).value;
 
     if (!validateUUID(remoteId)) {
       alert('Invalid Remote ID. Please select a valid UUID.');
       return;
     }
 
-    if (!/^\d{6}$/.test(mfaCode)) {
-      alert('Invalid MFA Code. Please enter a 6-digit number.');
+    if (!/^\d{6}$/.test(otpCode)) {
+      alert('Invalid OTP Code. Please enter a 6-digit number.');
       return;
     }
 
-    onConnect({ remoteId, mfaCode });
+    onConnect({ remoteId, otpCode });
   };
 
   const hasRemotes = remotes && remotes.length > 0;
@@ -47,8 +47,8 @@ export function Dialog({ onConnect, remotes, refreshRemotes }: {
           )}
         </div>
 
-        <label htmlFor="mfaCode" className="block text-sm font-medium text mb-1">MFA Code</label>
-        <input type="text" id="mfaCode" className="w-full px-3 py-2 border accent-input mb-4" disabled={!hasRemotes} />
+        <label htmlFor="otpCode" className="block text-sm font-medium text mb-1">OTP Code</label>
+        <input type="text" id="otpCode" className="w-full px-3 py-2 border accent-input mb-4" disabled={!hasRemotes} />
 
         <button type="submit" className="w-full accent text-white py-2 px-4 rounded-md" onClick={onButtonClick} disabled={!hasRemotes}>Connect</button>
       </form>

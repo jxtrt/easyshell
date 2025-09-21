@@ -6,15 +6,21 @@ import { Dialog } from './components/Dialog';
 function App() {
   //state: "initial" or "terminal"
   const [state, setState] = React.useState<'initial' | 'terminal'>('initial');
-
   const [remoteId, setRemoteId] = React.useState('');
-  const [mfaCode, setMfaCode] = React.useState('');
+  const [OTPCode, setOTPCode] = React.useState('');
   const [remotes, setRemotes] = React.useState<Array<{ id: string; name: string }>>([]);
 
-  const refreshRemotes = async () => {
-    let host = import.meta.env.VITE_SERVER_HOST || 'localhost';
-    let port = import.meta.env.VITE_SERVER_PORT || '3000';
-    
+  //create a clientId (uuid) on app startup.
+  const clientIdRef = useRef<string>('');
+  if (!clientIdRef.current) {
+    clientIdRef.current = crypto.randomUUID();
+  }
+  const clientId = clientIdRef.current;
+
+  const host = import.meta.env.VITE_SERVER_HOST || 'localhost';
+  const port = import.meta.env.VITE_SERVER_PORT || '3000';
+
+  const refreshRemotes = async () => {    
     console.log(`Fetching devices from http://${host}:${port}/devices`);
 
     try {
@@ -25,17 +31,39 @@ function App() {
     }
   };
 
-  let onConnect = ({ remoteId, mfaCode }: { remoteId: string; mfaCode: string }) => {
+  let onConnect = async ({ remoteId, otpCode }: { remoteId: string; otpCode: string }) => {
+    // POST request to /session with { clientId, remoteId, authType="otp", otpCode }
     setRemoteId(remoteId);
-    setMfaCode(mfaCode);
+    setOTPCode(otpCode);
+
+    let response = await fetch(`http://${host}:${port}/session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        remote_id: remoteId,
+        auth_type: 'otp',
+        auth_value: otpCode,
+      }),
+    });
     
+    console.log('Session request response status:', response.status);
+    if (!response.ok) {
+      let errorData = await response.json();
+      alert(`Failed to create session: ${errorData.error || response.statusText}`);
+      return;
+    }
+    console.log('Session request response body:', await response.text());
+
     setState('terminal');
   };
 
   let onDisconnect = () => {
     setState('initial');
     setRemoteId('');
-    setMfaCode('');
+    setOTPCode('');
   }
 
   useEffect(() => {
