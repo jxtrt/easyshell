@@ -24,6 +24,8 @@ export function Dialog({ onConnect, remotes, refreshRemotes }: {
     onConnect({ remoteId, mfaCode });
   };
 
+  const hasRemotes = remotes && remotes.length > 0;
+
   return (
     <div className="flex items-center justify-center">
       <form className="bg-white p-6 shadow-md max-w-lg">
@@ -31,10 +33,14 @@ export function Dialog({ onConnect, remotes, refreshRemotes }: {
 
         <label htmlFor="remoteId" className="block text-sm font-medium text mb-1">Remote ID</label>
         <div className="flex items-center gap-2 mb-4">
-          <select id="remoteId" className="w-full px-3 py-2 border accent-input">
-            {remotes?.map(remote => (
-              <option key={remote.id} value={remote.id}>{remote.id}</option>
-            ))}
+          <select id="remoteId" className="w-full px-3 py-2 border accent-input" disabled={!hasRemotes}>
+            {hasRemotes ? (
+              remotes.map(remote => (
+                <option key={remote.id} value={remote.id}>{remote.id}</option>
+              ))
+            ) : (
+              <option value="">No remotes available</option>
+            )}
           </select>
           {refreshRemotes && (
             <button type="button" className="px-3 py-2 accent text-white rounded-md" onClick={refreshRemotes}>Refresh</button>
@@ -42,9 +48,9 @@ export function Dialog({ onConnect, remotes, refreshRemotes }: {
         </div>
 
         <label htmlFor="mfaCode" className="block text-sm font-medium text mb-1">MFA Code</label>
-        <input type="text" id="mfaCode" className="w-full px-3 py-2 border accent-input mb-4" />
+        <input type="text" id="mfaCode" className="w-full px-3 py-2 border accent-input mb-4" disabled={!hasRemotes} />
 
-        <button type="submit" className="w-full accent text-white py-2 px-4 rounded-md" onClick={onButtonClick}>Connect</button>
+        <button type="submit" className="w-full accent text-white py-2 px-4 rounded-md" onClick={onButtonClick} disabled={!hasRemotes}>Connect</button>
       </form>
     </div>
   );

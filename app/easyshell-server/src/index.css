@@ -41,3 +41,11 @@
   @apply text-blue-600 hover:text-blue-800;
   cursor: pointer;
 }
+
+button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+input:disabled, textarea:disabled, select:disabled {
+  @apply bg-zinc-100 cursor-not-allowed;
+}
