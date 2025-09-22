@@ -1,6 +1,6 @@
 import uuid
-from auth import AuthType
 from pydantic import BaseModel, field_validator
+from easyshell_server.auth import AuthType
 
 
 class HeartbeatSchema(BaseModel):

@@ -1,32 +1,29 @@
-import time
 import os
 import asyncio
-from threading import Lock
-from typing import Type, Callable, Any
+from typing import Type, Callable
 from functools import wraps
 
 from dotenv import load_dotenv
-from sanic import Sanic, Request, Websocket, response
+from sanic import Sanic, Request, response
 from sanic.response import json
 from sanic.log import logger
 
-from sanic_ext import Extend, validate
+from sanic_ext import Extend
 
 from pydantic import BaseModel, ValidationError
 
-from validation.heartbeat import HeartbeatSchema
-from validation.session_request import SessionRequestSchema
-from session_manager import SessionManager
+from easyshell_server.validation.heartbeat import HeartbeatSchema
+from easyshell_server.validation.session_request import SessionRequestSchema
+from easyshell_server.session_manager import SessionManager
+from easyshell_server.heartbeat_manager import HeartbeatManager
 
 
 app = Sanic("easyshell_api")
 app.config.CORS_ORIGINS = "*"
 Extend(app)
 
-heartbeats = {}
-heartbeat_lock = Lock()
-
 session_manager = SessionManager()
+heartbeat_manager = HeartbeatManager()
 
 
 def validate_json(model: Type[BaseModel]):
@@ -43,52 +40,22 @@ def validate_json(model: Type[BaseModel]):
             return await handler(request, obj, *args, **kwargs)
 
         return wrapper
+
     return decorator
-
-
-async def cleanup_heartbeats(timeout=60):
-    """Remove heartbeats older than the timeout."""
-    current_time = int(time.time())
-    with heartbeat_lock:
-        to_delete = [
-            device_id
-            for device_id, info in heartbeats.items()
-            if current_time - info["timestamp"] > timeout
-        ]
-        for device_id in to_delete:
-            del heartbeats[device_id]
-
-    return len(to_delete)
 
 
 @app.post("/heartbeat")
 @validate_json(HeartbeatSchema)
 async def heartbeat(_: Request, heartbeat: HeartbeatSchema):
-    with heartbeat_lock:
-        heartbeats[heartbeat.id] = {
-            "auth_type": heartbeat.auth_type,
-            "timestamp": int(time.time()),
-        }
-
+    await heartbeat_manager.heartbeat(heartbeat.id, heartbeat.auth_type)
     logger.info(f"Received heartbeat from {heartbeat.id}.")
-
     return json({"status": "ok"})
 
 
 @app.get("/devices")
 async def get_devices(_):
     logger.info("A client requested devices.")
-    with heartbeat_lock:
-        devices = []
-        for device_id, info in heartbeats.items():
-            devices.append(
-                {
-                    "id": str(device_id),
-                    "auth_type": info["auth_type"].value,
-                    "timestamp": info["timestamp"],
-                }
-            )
-
+    devices = await heartbeat_manager.get_heartbeats()
     return json({"devices": devices})
 
 
@@ -96,14 +63,10 @@ async def get_devices(_):
 @validate_json(SessionRequestSchema)
 async def request_session(request: Request, body: SessionRequestSchema):
     try:
-        with heartbeat_lock:
-            if body.remote_id not in heartbeats:
-                return json({"error": "Device offline."}, status=404)
+        device_info = await heartbeat_manager.find_by_remote_id(body.remote_id)
 
-            device_info = heartbeats[body.remote_id]
-
-            if device_info["auth_type"] != body.auth_type:
-                return json({"error": "Auth type mismatch."}, status=400)
+        if device_info["auth_type"] != body.auth_type:
+            return json({"error": "Auth type mismatch."}, status=400)
 
     except ValueError as e:
         return json({"error": str(e)}, status=400)
@@ -147,12 +110,14 @@ async def setup_cleanup(app, _):
         stale_session_timeout = int(os.getenv("SESSION_TIMEOUT", 300))
 
         while True:
-            n_heartbeats = await cleanup_heartbeats(timeout=heartbeat_timeout)
-            logger.info(
-                "Cleaned up %s heartbeats.", n_heartbeats
+            n_heartbeats = await heartbeat_manager.cleanup_heartbeats(
+                timeout=heartbeat_timeout
             )
+            logger.info("Cleaned up %s heartbeats.", n_heartbeats)
 
-            n_sessions = await session_manager.cleanup_sessions(timeout=stale_session_timeout)
+            n_sessions = await session_manager.cleanup_sessions(
+                timeout=stale_session_timeout
+            )
             logger.info(
                 "Cleaned up %s stale sessions.",
                 n_sessions,

@@ -1,7 +1,7 @@
 import uuid
-from auth import AuthType
-
 from pydantic import BaseModel, field_validator
+from easyshell_server.auth import AuthType
+
 
 class SessionRequestSchema(BaseModel):
     client_id: uuid.UUID

@@ -3,7 +3,7 @@ import uuid
 import time
 import asyncio
 
-from auth import AuthType
+from easyshell_server.auth import AuthType
 
 
 @dataclass
@@ -19,6 +19,7 @@ class Session:
     auth_value: str
     timestamp: int
     status: str = STATUS_PENDING
+
 
 class SessionManager:
     def __init__(self):
@@ -46,7 +47,7 @@ class SessionManager:
 
         return session
 
-    async def cleanup_sessions(self, timeout: int) -> int:
+    async def cleanup_sessions(self, timeout: int = 60) -> int:
         async with self.session_lock:
             now = int(time.time())
             to_delete = [
