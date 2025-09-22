@@ -2,6 +2,7 @@ import os
 import asyncio
 from typing import Type, Callable
 from functools import wraps
+from collections import defaultdict
 
 from dotenv import load_dotenv
 from sanic import Sanic, Request, response
@@ -17,6 +18,9 @@ from easyshell_server.validation.session_request import SessionRequestSchema
 from easyshell_server.session_manager import SessionManager
 from easyshell_server.heartbeat_manager import HeartbeatManager
 
+RESPONSE_STATUS_NOP = "nop"
+RESPONSE_STATUS_STOP = "stop"
+RESPONSE_STATUS_SHELL_REQUEST = "shell_request"
 
 app = Sanic("easyshell_api")
 app.config.CORS_ORIGINS = "*"
@@ -25,6 +29,8 @@ Extend(app)
 session_manager = SessionManager()
 heartbeat_manager = HeartbeatManager()
 
+ws_connections = defaultdict(dict)  # session_secret -> {"client": ws, "daemon": ws}
+session_url_template = "ws://{host}/ws/{client_or_daemon}/{session_secret}"
 
 def validate_json(model: Type[BaseModel]):
     def decorator(handler: Callable):
@@ -36,20 +42,31 @@ def validate_json(model: Type[BaseModel]):
                 logger.error(f"Validation error: {e.errors()}")
                 return response.json({"error": e.errors()}, status=400)
 
-            # Check if the handler is asynchronous
             return await handler(request, obj, *args, **kwargs)
-
         return wrapper
-
     return decorator
 
 
 @app.post("/heartbeat")
 @validate_json(HeartbeatSchema)
-async def heartbeat(_: Request, heartbeat: HeartbeatSchema):
+async def heartbeat(request: Request, heartbeat: HeartbeatSchema):
     await heartbeat_manager.heartbeat(heartbeat.id, heartbeat.auth_type)
     logger.info(f"Received heartbeat from {heartbeat.id}.")
-    return json({"status": "ok"})
+
+    is_there_pending_session = await session_manager.remote_has_pending_session(heartbeat.id)
+    if is_there_pending_session:
+        logger.info(f"Pending session request for {heartbeat.id}.")
+        session = await session_manager.get_session_by_remote_id(heartbeat.id)
+        return json({
+            "status": RESPONSE_STATUS_SHELL_REQUEST,
+            "ws_url": session_url_template.format(
+                host=request.headers.get("host", "localhost"),
+                client_or_daemon="daemon",
+                session_secret=session.secret,
+            )
+        })
+    
+    return json({"status": RESPONSE_STATUS_NOP})
 
 
 @app.get("/devices")
@@ -63,9 +80,9 @@ async def get_devices(_):
 @validate_json(SessionRequestSchema)
 async def request_session(request: Request, body: SessionRequestSchema):
     try:
-        device_info = await heartbeat_manager.find_by_remote_id(body.remote_id)
+        existing_session = await heartbeat_manager.find_by_remote_id(body.remote_id)
 
-        if device_info["auth_type"] != body.auth_type:
+        if existing_session.auth_type != body.auth_type:
             return json({"error": "Auth type mismatch."}, status=400)
 
     except ValueError as e:
@@ -82,25 +99,90 @@ async def request_session(request: Request, body: SessionRequestSchema):
         auth_value=body.auth_value,
     )
 
-    websocket_url = f"ws://{request.host}/ws/{session.secret}"
+    client_websocket_url = session_url_template.format(
+        host=request.headers.get("host", "localhost"),
+        client_or_daemon="client",
+        session_secret=session.secret,
+    )
 
-    return json({"session_secret": session.secret, "websocket_url": websocket_url})
+    return json({
+        "session_secret": session.secret, 
+        "websocket_url": client_websocket_url
+    })
 
 
-@app.websocket("/ws/<session_secret>")
-async def websocket_handler(request, ws, session_secret):
-    """Handle WebSocket communication."""
-    logger.info(f"WebSocket connection established for session {session_secret}.")
+@app.websocket("/ws/client/<session_secret>")
+async def client_websocket_handler(request, ws, session_secret):
+    """Handle websocket communication for the client."""
+    logger.info(f"Websocket connection established with a client, for session {session_secret}.")
+    try:
+        session = await session_manager.get_session(session_secret)
+        if not session:
+            logger.error(f"No session found for secret {session_secret}. Closing connection.")
+            await ws.close()
+            return
+
+        ws_connections[session_secret]["client"] = ws
+
+        while True:
+            data = await ws.recv()
+            if "daemon" in ws_connections[session_secret]:
+                await ws_connections[session_secret]["daemon"].send(data)
+            else:
+                logger.warning(f"No daemon connected for session {session_secret}.")
+
+    except Exception as e:
+        logger.error(f"Error in client websocket: {e}")
+    finally:
+        logger.info(f"Client disconnected. Closing session {session_secret}.")
+        await session_manager.close_session(session_secret)
+        ws_connections.get(session_secret, {}).pop("client", None)
+        if "daemon" in ws_connections.get(session_secret, {}):
+            print("C")
+            try:
+                await ws_connections[session_secret]["daemon"].close()
+                logger.info(f"Closed daemon connection for {session_secret}.")
+            except Exception as e:
+                logger.error(f"Error closing daemon websocket: {e}")
+            ws_connections[session_secret].pop("daemon", None)
+
+@app.websocket("/ws/daemon/<session_secret>")
+async def daemon_websocket_handler(request, ws, session_secret):
+    """Handle websocket communication for the daemon."""
+    logger.info(f"Websocket connection established with a daemon, for session {session_secret}.")
 
     try:
+        session = await session_manager.start_session(session_secret)
+        if not session:
+            logger.error(f"No session found for secret {session_secret}. Closing connection.")
+            await ws.close()
+            return
+
+        ws_connections[session_secret]["daemon"] = ws
+
         while True:
-            message = await ws.recv()
-            logger.info(f"Received message: {message}")
-            await ws.send(f"Echo: {message}")
+            data = await ws.recv()
+            print("AAAAAA")
+            print(data)
+            if "client" in ws_connections[session_secret]:
+                await ws_connections[session_secret]["client"].send(data)
+            else:
+                logger.warning(f"No client connected for session {session_secret}.")
+
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"Error in daemon websocket: {e}")
     finally:
-        logger.info(f"WebSocket connection closed for session {session_secret}.")
+        logger.info(f"Daemon disconnected. Closing session {session_secret}.")
+        await session_manager.close_session(session_secret)
+        ws_connections.get(session_secret, {}).pop("daemon", None)
+
+        if "client" in ws_connections.get(session_secret, {}):
+            try:
+                await ws_connections[session_secret]["client"].close()
+                logger.info(f"Closed client connection for {session_secret}.")
+            except Exception as e:
+                logger.error(f"Error closing client websocket: {e}")
+            ws_connections[session_secret].pop("client", None)
 
 
 @app.after_server_start
